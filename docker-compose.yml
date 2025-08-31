@@ -1,0 +1,245 @@
+version: "3.8"
+services:
+  # ===================== KEYCLOAK =====================
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.0
+#    command: start-dev
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    networks:
+      - microservices-net
+    volumes:
+#      - keycloak-data:/opt/keycloak/data
+      - ./keycloak-realm:/opt/keycloak/data/import
+  # ===================== API GATEWAY =====================
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8080"
+    depends_on:
+      - product-service
+      - user-service
+      - keycloak
+      - cart-service
+      - order-service
+      - payment-service
+    networks:
+      - microservices-net
+
+  # ===================== PRODUCT SERVICE =====================
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://product-db:3306/productdb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/myrealm
+    depends_on:
+      user-db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    ports:
+      - "8081:8081"
+    networks:
+      - microservices-net
+
+  product-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: productdb
+    ports:
+      - "3307:3306"
+    networks:
+      - microservices-net
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - productdb-data:/var/lib/mysql
+  # ===================== USER SERVICE =====================
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://user-db:3306/userdb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/myrealm
+    depends_on:
+      user-db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    ports:
+      - "8082:8082"
+    networks:
+      - microservices-net
+
+  user-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: userdb
+    ports:
+      - "3308:3306"
+    networks:
+      - microservices-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - userdb-data:/var/lib/mysql
+
+  # ===================== CART SERVICE =====================
+  cart-service:
+    build:
+      context: ./cart-service
+      dockerfile: Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://cart-db:3306/cartdb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/myrealm
+    depends_on:
+      cart-db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    ports:
+      - "8084:8084"
+    networks:
+      - microservices-net
+
+  cart-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: cartdb
+    ports:
+      - "3309:3306"
+    networks:
+      - microservices-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - cartdb-data:/var/lib/mysql
+
+  # ===================== ORDER SERVICE =====================
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://order-db:3306/orderdb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/myrealm
+    depends_on:
+      order-db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    ports:
+      - "8085:8085"
+    networks:
+      - microservices-net
+
+  order-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: orderdb
+    ports:
+      - "3310:3306"
+    networks:
+      - microservices-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - orderdb-data:/var/lib/mysql
+
+  # ===================== PAYMENT SERVICE =====================
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://payment-db:3306/paymentdb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/myrealm
+    depends_on:
+      payment-db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    ports:
+      - "8086:8086"
+    networks:
+      - microservices-net
+
+  payment-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: paymentdb
+    ports:
+      - "3311:3306"
+    networks:
+      - microservices-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - paymentdb-data:/var/lib/mysql
+
+
+  # ===================== FRONTEND =====================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - gateway-service
+    networks:
+      - microservices-net
+
+# ===================== NETWORK =====================
+networks:
+  microservices-net:
+    driver: bridge
+
+
+# ===================== VOLUMES =====================
+volumes:
+  userdb-data:
+  productdb-data:
+  cartdb-data:
+  orderdb-data:
+  paymentdb-data:
+  keycloak-data:
