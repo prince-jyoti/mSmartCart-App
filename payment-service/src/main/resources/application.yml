@@ -9,8 +9,8 @@ user:
 #    url: http://localhost:8082
     url: http://user-service:8082
 razorpay:
-  key: rzp_test_TAzs3IDabbKh9o
-  secret: GSG9IxDItbbNnK2lsplM8llI
+  key: rzp_test_TAWs3IeRabbKh56
+  secret: GSG9IxDItdbNnK2lsplM9lqI
 spring:
   datasource:
 #    url: jdbc:mysql://localhost:3306/paymentdb
