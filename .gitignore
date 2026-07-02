@@ -49,3 +49,6 @@ Thumbs.db
 *.seed
 *.bak
 docker-compose.override.yml
+
+# Docs (kept locally, not tracked)
+*.md
