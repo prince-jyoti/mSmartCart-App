@@ -44,7 +44,7 @@ public class PaymentService {
 
 //These feign clients are not used because PammentRes DTO does not direct reference to User or Order details
     private UserDTO getUserDTO() {
-        BaseResponse<UserDTO> userResponse = userServiceClient.createOrUpdate();
+        BaseResponse<UserDTO> userResponse = userServiceClient.getCurrentUser();
         if (userResponse == null || userResponse.getData() == null) {
             throw new RuntimeException("User not found");
         }

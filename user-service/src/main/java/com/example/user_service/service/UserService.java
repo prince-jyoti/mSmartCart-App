@@ -7,33 +7,29 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 
-import java.util.Optional;
-
-
 @Service
 public class UserService {
     @Autowired
     private UserRepo userRepo;
 
-    public UserDto createOrUpdateUser(User user) {
-        Optional<User> existingUserOpt = userRepo.findByKeycloakUserId(user.getKeycloakUserId());
-        User savedUser;
-        if (existingUserOpt.isPresent()) {
-            User existingUser = existingUserOpt.get();
-            existingUser.setOrderIds(user.getOrderIds());
-            existingUser.setCartId(user.getCartId());
-            existingUser.setProductIds(user.getProductIds());
-            savedUser = userRepo.save(existingUser);
-        } else {
-            savedUser = userRepo.save(user);
-        }
-        return toUserDto(savedUser);
+    public UserDto getByEmail(String email) {
+        User user = userRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found: " + email));
+        return toUserDto(user);
+    }
+
+    public UserDto getById(Long id) {
+        User user = userRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found: " + id));
+        return toUserDto(user);
     }
 
     private UserDto toUserDto(User user) {
         UserDto dto = new UserDto();
         dto.setId(user.getId());
-        dto.setKeycloakUserId(user.getKeycloakUserId());
+        dto.setEmail(user.getEmail());
+        dto.setName(user.getName());
+        dto.setRole(user.getRole());
         dto.setOrderIds(user.getOrderIds());
         dto.setCartId(user.getCartId());
         dto.setProductIds(user.getProductIds());

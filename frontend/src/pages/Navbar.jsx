@@ -1,12 +1,13 @@
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { logout } from "../slices/authSlice";
 import { fetchCart } from "../slices/cartSlice";
 import { useEffect } from "react";
-import keycloak from "../utils/keycloak";
+import API from "../utils/api";
 
 export default function Navbar() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { items } = useSelector((state) => state.cart);
   const cartCount = items.reduce((count, item) => count + item.quantity, 0);
 
@@ -59,12 +60,10 @@ export default function Navbar() {
             </Link> */}
 
             <button
-              onClick={() => {
-                if (keycloak.authenticated) {
-                  keycloak.logout({ redirectUri: window.location.origin });
-                  localStorage.removeItem("token");
-                  dispatch(logout());
-                }
+              onClick={async () => {
+                await API.post("/auth/logout");
+                dispatch(logout());
+                navigate("/login");
               }}
               className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-medium hover:bg-indigo-50 transition-colors duration-200"
             >

@@ -22,7 +22,15 @@ public class User {
     private Long id;  // local DB id (internal reference)
 
     @Column(nullable = false, unique = true)
-    private String keycloakUserId; // maps to Keycloak UUID (sub claim in JWT)
+    private String email;
+
+    @Column(nullable = false)
+    private String password; // BCrypt-hashed
+
+    private String name;
+
+    @Column(nullable = false)
+    private String role; // e.g. "USER", "ADMIN"
 
 //    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
 //    private List<Order> orders;

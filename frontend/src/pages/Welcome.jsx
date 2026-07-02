@@ -1,16 +1,14 @@
 import { useSelector } from "react-redux";
-import keycloak from "../utils/keycloak";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 
 const Welcome = () => {
-  const handleLogin = () => {
-    if (!keycloak.authenticated) {
-      keycloak.login();
-    }
-  };
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const navigate = useNavigate();
+
+  const handleLogin = () => {
+    navigate("/auth");
+  };
 
   useEffect(() => {
     if (isAuthenticated) {

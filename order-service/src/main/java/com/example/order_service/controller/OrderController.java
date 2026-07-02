@@ -13,7 +13,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 
 @RestController
@@ -22,16 +21,12 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
-    private String getKeycloakUserRoleOrThrow(Jwt jwt) {
-        Map<String, Object> realmAccess = jwt.getClaim("realm_access");
-        if (realmAccess == null || !realmAccess.containsKey("roles")) {
-            throw new IllegalArgumentException("Invalid token: missing roles");
+    private String getUserRoleOrThrow(Jwt jwt) {
+        String role = jwt.getClaimAsString("role");
+        if (role == null || role.isEmpty()) {
+            throw new IllegalArgumentException("Invalid token: missing role");
         }
-        List<String> roles = (List<String>) realmAccess.get("roles");
-        if (roles == null || roles.isEmpty()) {
-            throw new IllegalArgumentException("No roles found in token");
-        }
-        return roles.get(0); // returns the first role
+        return role;
     }
 
     @PostMapping
@@ -49,7 +44,7 @@ public class OrderController {
     @GetMapping
     public ResponseEntity<BaseResponse<List<OrderRes>>> getAllOrder(@AuthenticationPrincipal Jwt jwt) {
         try {
-            String role = getKeycloakUserRoleOrThrow(jwt);
+            String role = getUserRoleOrThrow(jwt);
             List<OrderRes> orders = orderService.getAllOrders( role);
             return ResponseEntity.ok(new BaseResponse<>(200, "Orders fetched", orders));
         } catch (Exception e) {

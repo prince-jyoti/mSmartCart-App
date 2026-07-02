@@ -1,33 +1,45 @@
 server:
   port: 8083
 
+jwt:
+  secret: ${JWT_SECRET:change-this-shared-secret-change-this-shared-secret}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+
 spring:
+  application:
+    name: gateway-service
   cloud:
     gateway:
+      discovery:
+        locator:
+          enabled: false
       routes:
+        - id: auth-service
+          uri: lb://user-service
+          predicates:
+            - Path=/auth/**
         - id: product-service
-#          uri: http://localhost:8081
-          uri: http://product-service:8081
+          uri: lb://product-service
           predicates:
             - Path=/products/**
         - id: user-service
-#          uri: http://localhost:8082
-          uri: http://user-service:8082
+          uri: lb://user-service
           predicates:
             - Path=/user/**
         - id: cart-service
-#          uri: http://localhost:8084
-          uri: http://cart-service:8084
+          uri: lb://cart-service
           predicates:
             - Path=/carts/**
         - id: order-service
-#          uri: http://localhost:8085
-          uri: http://order-service:8085
+          uri: lb://order-service
           predicates:
             - Path=/orders/**
         - id: payment-service
-#          uri: http://localhost:8086
-          uri: http://payment-service:8086
+          uri: lb://payment-service
           predicates:
             - Path=/payments/**
       globalcors:
@@ -42,13 +54,7 @@ spring:
             allowedHeaders:
               - "*"
             allowCredentials: true
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-#          issuer-uri: http://localhost:8080/realms/myrealm
-          issuer-uri: http://keycloak:8080/realms/myrealm
-    logging:
-      level:
-        spring.cloud.gateway: DEBUG
-        org.springframework.security: DEBUG
+  logging:
+    level:
+      spring.cloud.gateway: DEBUG
+      org.springframework.security: DEBUG

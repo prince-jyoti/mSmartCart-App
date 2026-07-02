@@ -7,7 +7,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 
 
-@FeignClient(name = "order-service", url = "${order.service.url}", fallback = OrderServiceFallback.class, configuration = FeignClientConfig.class)
+@FeignClient(name = "order-service", fallback = OrderServiceFallback.class, configuration = FeignClientConfig.class)
 public interface OrderServiceClient {
     @GetMapping("/orders/{id}")
     BaseResponse<OrderRes> getOrderById(Long id);

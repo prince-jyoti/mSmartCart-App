@@ -1,34 +1,31 @@
 version: "3.8"
 services:
-  # ===================== KEYCLOAK =====================
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.0.0
-#    command: start-dev
-    command: start-dev --import-realm
-    environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+  # ===================== SERVICE DISCOVERY =====================
+  eureka-server:
+    build:
+      context: ./eureka-server
+      dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "8761:8761"
     networks:
       - microservices-net
-    volumes:
-#      - keycloak-data:/opt/keycloak/data
-      - ./keycloak-realm:/opt/keycloak/data/import
+
   # ===================== API GATEWAY =====================
   gateway-service:
     build:
       context: ./gateway-service
       dockerfile: Dockerfile
-    ports:
-      - "8083:8080"
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-change-this-shared-secret-change-this-shared-secret}
     depends_on:
+      - eureka-server
       - product-service
       - user-service
-      - keycloak
       - cart-service
       - order-service
       - payment-service
+    ports:
+      - "8083:8083"
     networks:
       - microservices-net
 
@@ -41,11 +38,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://product-db:3306/productdb
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/myrealm
+      JWT_SECRET: ${JWT_SECRET:-change-this-shared-secret-change-this-shared-secret}
     depends_on:
       user-db:
         condition: service_healthy
-      keycloak:
+      eureka-server:
         condition: service_started
     ports:
       - "8081:8081"
@@ -77,11 +74,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://user-db:3306/userdb
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/myrealm
+      JWT_SECRET: ${JWT_SECRET:-change-this-shared-secret-change-this-shared-secret}
     depends_on:
       user-db:
         condition: service_healthy
-      keycloak:
+      eureka-server:
         condition: service_started
     ports:
       - "8082:8082"
@@ -114,11 +111,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://cart-db:3306/cartdb
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/myrealm
+      JWT_SECRET: ${JWT_SECRET:-change-this-shared-secret-change-this-shared-secret}
     depends_on:
       cart-db:
         condition: service_healthy
-      keycloak:
+      eureka-server:
         condition: service_started
     ports:
       - "8084:8084"
@@ -151,11 +148,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://order-db:3306/orderdb
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/myrealm
+      JWT_SECRET: ${JWT_SECRET:-change-this-shared-secret-change-this-shared-secret}
     depends_on:
       order-db:
         condition: service_healthy
-      keycloak:
+      eureka-server:
         condition: service_started
     ports:
       - "8085:8085"
@@ -188,11 +185,13 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://payment-db:3306/paymentdb
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/myrealm
+      JWT_SECRET: ${JWT_SECRET:-change-this-shared-secret-change-this-shared-secret}
+      RAZORPAY_KEY: ${RAZORPAY_KEY}
+      RAZORPAY_SECRET: ${RAZORPAY_SECRET}
     depends_on:
       payment-db:
         condition: service_healthy
-      keycloak:
+      eureka-server:
         condition: service_started
     ports:
       - "8086:8086"
@@ -242,4 +241,3 @@ volumes:
   cartdb-data:
   orderdb-data:
   paymentdb-data:
-  keycloak-data:

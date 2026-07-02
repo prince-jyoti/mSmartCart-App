@@ -2,7 +2,9 @@ package com.example.cart_service.client;
 
 import com.example.cart_service.dto.ProductDTO;
 import com.example.cart_service.utils.BaseResponse;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ProductServiceFallback implements ProductServiceClient {
     @Override
     public BaseResponse<ProductDTO> getById(Long id) {

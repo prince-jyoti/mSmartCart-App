@@ -11,7 +11,6 @@ import com.example.cart_service.entity.CartItem;
 import com.example.cart_service.repository.CartItemRepo;
 import com.example.cart_service.repository.CartRepo;
 import com.example.cart_service.utils.BaseResponse;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +19,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-@Slf4j
 @Service
 public class CartService {
     @Autowired
@@ -34,32 +32,26 @@ public class CartService {
 
     private UserDTO getUserDTO() {
         try {
-            log.info("Before Feign call");
-            BaseResponse<UserDTO> userResponse = userServiceClient.createOrUpdate();
-            log.info("After Feign call: {}", userResponse);
+            BaseResponse<UserDTO> userResponse = userServiceClient.getCurrentUser();
             if (userResponse == null || userResponse.getData() == null) {
                 throw new RuntimeException("User not found");
             }
             return userResponse.getData();
         } catch (Exception e) {
-            log.error("Feign client error", e);
+            return null;
         }
-
-        return null;
     }
 
     private ProductDTO getProductDTO(Long productId) {
         try {
-            log.info("Before Feign call product: {}", productId);
             BaseResponse<ProductDTO> productResponse = productServiceClient.getById(productId);
             if (productResponse == null || productResponse.getData() == null) {
                 throw new RuntimeException("Product not found");
             }
             return productResponse.getData();
         } catch (Exception e) {
-            log.error("Feign client error", e);
+            return null;
         }
-        return null;
     }
 
     public CartReq getCartByUser() {

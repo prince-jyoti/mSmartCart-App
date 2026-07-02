@@ -4,10 +4,10 @@ import com.example.payment_service.configuration.FeignClientConfig;
 import com.example.payment_service.dto.UserDTO;
 import com.example.payment_service.utils.BaseResponse;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 
-@FeignClient(name = "user-service", url = "${user.service.url}", fallback = UserServiceFallback.class, configuration = FeignClientConfig.class)
+@FeignClient(name = "user-service", fallback = UserServiceFallback.class, configuration = FeignClientConfig.class)
 public interface UserServiceClient {
-    @PostMapping("/user")
-    BaseResponse<UserDTO> createOrUpdate();
+    @GetMapping("/user/me")
+    BaseResponse<UserDTO> getCurrentUser();
 }

@@ -1,5 +1,5 @@
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
-// import Login from "../pages/Login";
+import Login from "../pages/Login";
 import ProtectedRoute from "./ProtectedRoute";
 import Home from "../pages/Product";
 import Welcome from "../pages/Welcome";
@@ -13,7 +13,7 @@ const MainRoute = () => {
     <Router>
       <Routes>
         <Route path="/login" element={<Welcome />} />
-        {/* <Route path="/login" element={<Login onLogin={onLogin} />} /> */}
+        <Route path="/auth" element={<Login />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />

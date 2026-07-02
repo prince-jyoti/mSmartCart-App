@@ -7,9 +7,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class UserServiceFallback implements UserServiceClient {
     @Override
-    public BaseResponse<UserDTO> createOrUpdate() {
+    public BaseResponse<UserDTO> getCurrentUser() {
         UserDTO defaultUser = new UserDTO();
-        defaultUser.setKeycloakUserId("default-id");
+        defaultUser.setEmail("default@unknown");
         return new BaseResponse<>(503, "User service unavailable", defaultUser);
     }
 }

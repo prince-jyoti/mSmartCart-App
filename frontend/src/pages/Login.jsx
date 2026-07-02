@@ -1,14 +1,18 @@
-import axios from "axios";
 import React, { useState } from "react";
+import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import API from "../utils/api";
+import { login } from "../slices/authSlice";
 import SignUp from "./SignUp";
 
-export default function Login({ onLogin }) {
+export default function Login() {
   const [loginData, setLoginData] = useState({
     email: "",
     password: "",
   });
   const [signUpPage, setSignUpPage] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -22,14 +26,14 @@ export default function Login({ onLogin }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post("http://localhost:8080/auth/login", {
+      const response = await API.post("/auth/login", {
         email: loginData.email,
         password: loginData.password,
       });
-      onLogin(response.data);
+      dispatch(login(response.data.data));
       navigate("/");
     } catch (err) {
-      console.error(
+      setLoginError(
         err.response?.data?.message || "Invalid username or password"
       );
     }
@@ -101,6 +105,9 @@ export default function Login({ onLogin }) {
                 value={loginData.password}
               />
             </div>
+            {loginError && (
+              <div className="text-red-600 text-sm mb-4">{loginError}</div>
+            )}
             <button
               type="submit"
               className="w-full mb-2 bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition"

@@ -19,14 +19,6 @@ public class CartController {
     @Autowired
     private CartService cartService;
 
-//    private String getKeycloakUserIdOrThrow(Jwt jwt) {
-//        String  = jwt.getSubject();
-//        if ( == null || .isEmpty()) {
-//            throw new IllegalArgumentException("Invalid token: missing subject");
-//        }
-//        return ;
-//    }
-
     @GetMapping
     public ResponseEntity<BaseResponse<CartReq>> getCart() {
         try {

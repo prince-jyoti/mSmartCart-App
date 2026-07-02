@@ -32,7 +32,15 @@ public class OrderService {
     private PaymentServiceClient paymentServiceClient;
 
     private UserDTO getUserDTO() {
-        BaseResponse<UserDTO> userResponse = userServiceClient.createOrUpdate();
+        BaseResponse<UserDTO> userResponse = userServiceClient.getCurrentUser();
+        if (userResponse == null || userResponse.getData() == null) {
+            throw new RuntimeException("User not found");
+        }
+        return userResponse.getData();
+    }
+
+    private UserDTO getUserDTOById(Long userId) {
+        BaseResponse<UserDTO> userResponse = userServiceClient.getUserById(userId);
         if (userResponse == null || userResponse.getData() == null) {
             throw new RuntimeException("User not found");
         }
@@ -113,7 +121,7 @@ public class OrderService {
 
     private OrderRes toOrderRes(Order order) {
         OrderRes res = new OrderRes();
-        UserDTO userDTO = getUserDTO();
+        UserDTO userDTO = getUserDTOById(order.getUserId());
         if(order.getPaymentId()!=null){
             PaymentRes paymentRes = getPaymentDTO(String.valueOf(order.getPaymentId()));
             res.setPayment(modelMapper.map(paymentRes, PaymentRes.class));

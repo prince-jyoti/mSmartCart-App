@@ -33,7 +33,6 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<ProductRes>> getById(@PathVariable Long id) {
         try {
             log.info("Fetching product with id: {}", id);

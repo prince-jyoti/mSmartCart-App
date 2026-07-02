@@ -7,7 +7,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
-@FeignClient(name = "payment-service", url = "${payment.service.url}", fallback = PaymentServiceFallback.class, configuration = FeignClientConfig.class)
+@FeignClient(name = "payment-service", fallback = PaymentServiceFallback.class, configuration = FeignClientConfig.class)
 public interface PaymentServiceClient {
     @GetMapping("/payments/{id}")
     BaseResponse<PaymentRes> getPaymentById(@PathVariable String id);

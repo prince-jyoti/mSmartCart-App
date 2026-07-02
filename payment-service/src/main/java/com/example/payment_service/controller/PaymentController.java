@@ -32,7 +32,7 @@ public class PaymentController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<BaseResponse<List<PaymentRes>>> getAllPayments(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<BaseResponse<List<PaymentRes>>> getAllPayments() {
         try {
             List<PaymentRes> payments = paymentService.getAllPayments();
             return ResponseEntity.ok(new BaseResponse<>(200, "Payments fetched", payments));

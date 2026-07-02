@@ -11,7 +11,9 @@ import java.util.List;
 @NoArgsConstructor
 public class UserDTO {
     private Long id;
-    private String keycloakUserId;
+    private String email;
+    private String name;
+    private String role;
     private List<Long> orderIds;
     private int cartId;
     private List<Long> productIds;

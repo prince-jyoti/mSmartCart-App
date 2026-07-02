@@ -1,30 +1,30 @@
 server:
   port: 8086
-order:
-  service:
-#    url: http://localhost:8085
-    url: http://order-service:8085
-user:
-  service:
-#    url: http://localhost:8082
-    url: http://user-service:8082
+
+jwt:
+  secret: ${JWT_SECRET:change-this-shared-secret-change-this-shared-secret}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+
 razorpay:
-  key: rzp_test_TAzs3IDabbKh9o
-  secret: GSG9IxDItbbNnK2lsplM8llI
+  key: ${RAZORPAY_KEY:razorpay-key-not-set}
+  secret: ${RAZORPAY_SECRET:razorpay-secret-not-set}
 spring:
+  application:
+    name: payment-service
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
   datasource:
 #    url: jdbc:mysql://localhost:3306/paymentdb
     url: jdbc:mysql://payment-db:3306/paymentdb
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
-
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-#          issuer-uri: http://localhost:8080/realms/myrealm
-          issuer-uri: http://keycloak:8080/realms/myrealm
 
   jpa:
     hibernate:
