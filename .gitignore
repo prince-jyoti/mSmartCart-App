@@ -7,11 +7,11 @@ pom.xml.next
 release.properties
 dependency-reduced-pom.xml
 buildNumber.properties
-.mvn/
 *.log
 
 # Spring Boot
 *.jar
+!**/.mvn/wrapper/maven-wrapper.jar
 *.war
 *.iml
 *.class
