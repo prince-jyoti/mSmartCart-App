@@ -15,7 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 @Service
@@ -30,6 +33,8 @@ public class OrderService {
     private ProductServiceClient productServiceClient;
     @Autowired
     private PaymentServiceClient paymentServiceClient;
+    @Autowired
+    private ExecutorService orderEnrichmentExecutor;
 
     private UserDTO getUserDTO() {
         BaseResponse<UserDTO> userResponse = userServiceClient.getCurrentUser();
@@ -119,17 +124,49 @@ public class OrderService {
         orderRepo.delete(order);
     }
 
+    // Saga compensation/completion step: payment-service calls this after it
+    // decides the payment succeeded or failed, so the order's own status
+    // reflects the outcome of a transaction that happened in another service's DB.
+    @Transactional
+    public void updateOrderStatusByOrderId(String orderId, OrderStatusUpdateReq statusUpdateReq) {
+        Order order = orderRepo.findByOrderId(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
+        order.setStatus(statusUpdateReq.getStatus());
+        if (statusUpdateReq.getPaymentId() != null) {
+            order.setPaymentId(statusUpdateReq.getPaymentId());
+        }
+        orderRepo.save(order);
+    }
+
     private OrderRes toOrderRes(Order order) {
+        // None of these three calls depend on each other's result, so fire them
+        // all off concurrently instead of blocking on them one at a time.
+        CompletableFuture<UserDTO> userFuture =
+                CompletableFuture.supplyAsync(() -> getUserDTOById(order.getUserId()), orderEnrichmentExecutor);
+
+        CompletableFuture<PaymentRes> paymentFuture = order.getPaymentId() != null
+                ? CompletableFuture.supplyAsync(() -> getPaymentDTO(String.valueOf(order.getPaymentId())), orderEnrichmentExecutor)
+                : CompletableFuture.completedFuture(null);
+
+        List<CompletableFuture<OrderItemDTO>> itemFutures = order.getItems().stream()
+                .map(item -> CompletableFuture.supplyAsync(() -> toOrderItemDTO(item), orderEnrichmentExecutor))
+                .collect(Collectors.toList());
+
+        CompletableFuture.allOf(
+                Stream.concat(Stream.of(userFuture, paymentFuture), itemFutures.stream())
+                        .toArray(CompletableFuture[]::new)
+        ).join();
+
         OrderRes res = new OrderRes();
-        UserDTO userDTO = getUserDTOById(order.getUserId());
-        if(order.getPaymentId()!=null){
-            PaymentRes paymentRes = getPaymentDTO(String.valueOf(order.getPaymentId()));
+        UserDTO userDTO = userFuture.join();
+        PaymentRes paymentRes = paymentFuture.join();
+        if (paymentRes != null) {
             res.setPayment(modelMapper.map(paymentRes, PaymentRes.class));
         }
         res.setId(order.getId());
         res.setOrderId(order.getOrderId());
         res.setUser(modelMapper.map(userDTO, UserDTO.class));
-        res.setItems(order.getItems().stream().map(this::toOrderItemDTO).collect(Collectors.toList()));
+        res.setItems(itemFutures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
         res.setTotalAmount(order.getTotalAmount());
         res.setStatus(order.getStatus());
         res.setCreatedAt(order.getCreatedAt());

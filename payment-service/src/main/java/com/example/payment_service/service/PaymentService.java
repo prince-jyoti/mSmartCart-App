@@ -3,6 +3,7 @@ package com.example.payment_service.service;
 import com.example.payment_service.client.OrderServiceClient;
 import com.example.payment_service.client.UserServiceClient;
 import com.example.payment_service.dto.OrderRes;
+import com.example.payment_service.dto.OrderStatusUpdateReq;
 import com.example.payment_service.dto.PaymentReq;
 import com.example.payment_service.dto.PaymentRes;
 import com.example.payment_service.dto.UserDTO;
@@ -13,6 +14,7 @@ import kong.unirest.HttpResponse;
 import kong.unirest.JsonNode;
 import kong.unirest.Unirest;
 import kong.unirest.json.JSONObject;
+import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +26,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 
+@Slf4j
 @Service
 public class PaymentService {
     @Autowired
@@ -62,45 +65,70 @@ public class PaymentService {
 
     @Transactional
     public PaymentRes createPayment(PaymentReq paymentReq) {
-        // 1. Verify signature
-        String generatedSignature = hmacSHA256(
-                paymentReq.getOrderId() + "|" + paymentReq.getPaymentId(),
-                secret
-        );
-        if (!generatedSignature.equals(paymentReq.getSignature())) {
-            throw new RuntimeException("Invalid payment signature");
+        try {
+            // 1. Verify signature
+            String generatedSignature = hmacSHA256(
+                    paymentReq.getOrderId() + "|" + paymentReq.getPaymentId(),
+                    secret
+            );
+            if (!generatedSignature.equals(paymentReq.getSignature())) {
+                throw new RuntimeException("Invalid payment signature");
+            }
+
+            // 2. Fetch payment details from Razorpay API
+            HttpResponse<JsonNode> response = Unirest.get("https://api.razorpay.com/v1/payments/" + paymentReq.getPaymentId())
+                    .basicAuth(key, secret)
+                    .asJson();
+
+            if (response.getStatus() != 200) {
+                throw new RuntimeException("Failed to fetch payment details from Razorpay");
+            }
+            JSONObject paymentObj = response.getBody().getObject();
+            String status = paymentObj.getString("status");
+            String paymentDate = paymentObj.getString("created_at"); // epoch seconds
+
+            // 3. Save payment with verified status and date
+            Payment payment = new Payment();
+            payment.setPaymentId(paymentReq.getPaymentId());
+            payment.setOrderId(paymentReq.getOrderId());
+            payment.setSignature(paymentReq.getSignature());
+            payment.setStatus(status);
+            long epochSeconds = Long.parseLong(paymentDate);
+            LocalDateTime dateTime = java.time.Instant.ofEpochSecond(epochSeconds)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDateTime();
+            payment.setPaymentDate(dateTime);
+            payment = paymentRepo.save(payment);
+
+            // 4. Saga completion step: this service's own local transaction succeeded,
+            // now tell order-service (the other participant) so its order reflects it.
+            // Best-effort — see OrderServiceFallback for the honest gap if this call fails.
+            updateOrderStatusSafely(paymentReq.getOrderIdRef(), "PAID", payment.getId());
+
+            return toPaymentRes(payment);
+        } catch (Exception e) {
+            // Saga compensation step: our local transaction failed (bad signature, Razorpay
+            // unreachable, etc.), so tell order-service to mark the order as failed instead
+            // of leaving it silently stuck at PENDING forever.
+            updateOrderStatusSafely(paymentReq.getOrderIdRef(), "PAYMENT_FAILED", null);
+            throw e;
         }
+    }
 
-        // 2. Fetch payment details from Razorpay API
-        HttpResponse<JsonNode> response = Unirest.get("https://api.razorpay.com/v1/payments/" + paymentReq.getPaymentId())
-                .basicAuth(key, secret)
-                .asJson();
-
-        if (response.getStatus() != 200) {
-            throw new RuntimeException("Failed to fetch payment details from Razorpay");
+    // Never let a failure to reach order-service abort/rollback the payment's own
+    // outcome — the payment record (success or failure) is this service's source of
+    // truth for what actually happened; the order-service call is a best-effort
+    // notification on top of it, not a distributed transaction.
+    private void updateOrderStatusSafely(String orderId, String status, Long paymentId) {
+        if (orderId == null) {
+            return;
         }
-        JSONObject paymentObj = response.getBody().getObject();
-        String status = paymentObj.getString("status");
-        String paymentDate = paymentObj.getString("created_at"); // epoch seconds
-
-        // 3. Save payment with verified status and date
-        Payment payment = new Payment();
-        payment.setPaymentId(paymentReq.getPaymentId());
-        payment.setOrderId(paymentReq.getOrderId());
-        payment.setSignature(paymentReq.getSignature());
-        payment.setStatus(status);
-        long epochSeconds = Long.parseLong(paymentDate);
-        LocalDateTime dateTime = java.time.Instant.ofEpochSecond(epochSeconds)
-                .atZone(java.time.ZoneId.systemDefault())
-                .toLocalDateTime();
-        payment.setPaymentDate(dateTime);
-//        if (paymentReq.getOrderIdRef() != null) {
-//            Order order = orderRepo.findByOrderId(String.valueOf(paymentReq.getOrderIdRef()))
-//                    .orElseThrow(() -> new RuntimeException("Order not found"));
-//            payment.setOrder(order);
-//        }
-        payment = paymentRepo.save(payment);
-        return toPaymentRes(payment);
+        try {
+            orderServiceClient.updateOrderStatus(orderId, new OrderStatusUpdateReq(status, paymentId));
+        } catch (Exception ex) {
+            log.error("Failed to propagate order status '{}' to order-service for orderId={}: {}",
+                    status, orderId, ex.getMessage(), ex);
+        }
     }
 
     // Utility method for MAC SHA256
