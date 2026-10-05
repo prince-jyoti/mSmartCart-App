@@ -31,3 +31,9 @@ spring:
       ddl-auto: update
     show-sql: true
     database-platform: org.hibernate.dialect.MySQL8Dialect
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: 5672
+    username: ${RABBITMQ_USER:smartcart}
+    password: ${RABBITMQ_PASSWORD:smartcart}
+    publisher-confirm-type: correlated

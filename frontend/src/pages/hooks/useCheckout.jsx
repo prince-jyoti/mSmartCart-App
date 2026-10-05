@@ -39,19 +39,23 @@ const useCheckout = () => {
         order_id: razorpayOrder.id, // Razorpay order ID
         handler: async function (response) {
           // 5. On payment success, verify and record payment
-          await dispatch(
-            verifyPayment({
-              paymentId: response.razorpay_payment_id,
-              orderId: response.razorpay_order_id,
-              signature: response.razorpay_signature,
-              status: "",
-              paymentDate: "",
-              orderIdRef: orderResult.orderId, // your internal order ID
-            })
-          );
-          alert("Payment successful!");
-          dispatch(clearCart());
-          navigate("/");
+          try {
+            await dispatch(
+              verifyPayment({
+                paymentId: response.razorpay_payment_id,
+                orderId: response.razorpay_order_id,
+                signature: response.razorpay_signature,
+                status: "",
+                paymentDate: "",
+                orderIdRef: orderResult.orderId, // your internal order ID
+              })
+            ).unwrap();
+            alert("Payment successful!");
+            dispatch(clearCart());
+            navigate("/");
+          } catch (err) {
+            alert("Payment could not be verified. If money was deducted, contact support.");
+          }
         },
         prefill: {
           name: orderResult.user.name,

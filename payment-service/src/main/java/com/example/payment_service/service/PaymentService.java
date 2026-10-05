@@ -1,12 +1,9 @@
 package com.example.payment_service.service;
 
 import com.example.payment_service.client.OrderServiceClient;
-import com.example.payment_service.client.UserServiceClient;
 import com.example.payment_service.dto.OrderRes;
-import com.example.payment_service.dto.OrderStatusUpdateReq;
 import com.example.payment_service.dto.PaymentReq;
 import com.example.payment_service.dto.PaymentRes;
-import com.example.payment_service.dto.UserDTO;
 import com.example.payment_service.entity.Payment;
 import com.example.payment_service.repository.PaymentRepo;
 import com.example.payment_service.utils.BaseResponse;
@@ -21,8 +18,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.security.MessageDigest;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 
@@ -36,7 +34,7 @@ public class PaymentService {
     @Autowired
     private OrderServiceClient orderServiceClient;
     @Autowired
-    private UserServiceClient userServiceClient;
+    private OutboxService outboxService;
 
     @Value("${razorpay.key}")
     private String key;
@@ -45,37 +43,48 @@ public class PaymentService {
     private String secret;
 
 
-//These feign clients are not used because PammentRes DTO does not direct reference to User or Order details
-    private UserDTO getUserDTO() {
-        BaseResponse<UserDTO> userResponse = userServiceClient.getCurrentUser();
-        if (userResponse == null || userResponse.getData() == null) {
-            throw new RuntimeException("User not found");
+    // Loaded with the caller's own token, so order-service only returns the order
+    // if it belongs to them (or they're an admin).
+    private OrderRes getOrderForCaller(String orderIdRef) {
+        BaseResponse<OrderRes> res = orderServiceClient.getOrderByOrderId(orderIdRef);
+        if (res == null || res.getStatus() != 200 || res.getData() == null) {
+            throw new RuntimeException("Order not found or order service unavailable");
         }
-        return userResponse.getData();
+        return res.getData();
     }
-
-    private OrderRes getOrderDTO(Long orderIdRef) {
-        BaseResponse<OrderRes> productResponse = orderServiceClient.getOrderById(orderIdRef);
-        if (productResponse == null || productResponse.getData() == null) {
-            throw new RuntimeException("Product not found");
-        }
-        return productResponse.getData();
-    }
-
 
     @Transactional
     public PaymentRes createPayment(PaymentReq paymentReq) {
+        if (paymentReq.getOrderIdRef() == null || paymentReq.getPaymentId() == null) {
+            throw new IllegalArgumentException("orderIdRef and paymentId are required");
+        }
+
+        // Same Razorpay payment submitted twice (double click, retry): return the stored
+        // result instead of recording it again.
+        Optional<Payment> existing = paymentRepo.findByPaymentId(paymentReq.getPaymentId());
+        if (existing.isPresent()) {
+            return toPaymentRes(existing.get());
+        }
+
+        // 1. Caller must own the order and it must still be awaiting payment. Anything
+        // that fails here is NOT reported to order-service: the order isn't the caller's
+        // to fail, and we don't want a stranger flipping someone else's order status.
+        OrderRes order = getOrderForCaller(paymentReq.getOrderIdRef());
+        if (!"PENDING".equals(order.getStatus()) && !"PAYMENT_FAILED".equals(order.getStatus())) {
+            throw new IllegalStateException("Order is not awaiting payment");
+        }
+
         try {
-            // 1. Verify signature
+            // 2. Verify signature
             String generatedSignature = hmacSHA256(
                     paymentReq.getOrderId() + "|" + paymentReq.getPaymentId(),
                     secret
             );
-            if (!generatedSignature.equals(paymentReq.getSignature())) {
+            if (!MessageDigest.isEqual(generatedSignature.getBytes(), String.valueOf(paymentReq.getSignature()).getBytes())) {
                 throw new RuntimeException("Invalid payment signature");
             }
 
-            // 2. Fetch payment details from Razorpay API
+            // 3. Fetch payment details from Razorpay API
             HttpResponse<JsonNode> response = Unirest.get("https://api.razorpay.com/v1/payments/" + paymentReq.getPaymentId())
                     .basicAuth(key, secret)
                     .asJson();
@@ -85,49 +94,45 @@ public class PaymentService {
             }
             JSONObject paymentObj = response.getBody().getObject();
             String status = paymentObj.getString("status");
-            String paymentDate = paymentObj.getString("created_at"); // epoch seconds
+            long paidPaise = paymentObj.getLong("amount");
+            long epochSeconds = paymentObj.getLong("created_at");
 
-            // 3. Save payment with verified status and date
+            // 4. The money must actually have been taken, for the amount the order is worth,
+            // against the Razorpay order this server created for it.
+            if (!"captured".equals(status) && !"authorized".equals(status)) {
+                throw new RuntimeException("Payment not successful, Razorpay status: " + status);
+            }
+            if (paidPaise != Math.round(order.getTotalAmount() * 100)) {
+                throw new RuntimeException("Paid amount does not match order total");
+            }
+            if (!paymentReq.getOrderId().equals(paymentObj.optString("order_id"))) {
+                throw new RuntimeException("Payment does not belong to the given Razorpay order");
+            }
+
+            // 5. Save payment with verified status and date
             Payment payment = new Payment();
             payment.setPaymentId(paymentReq.getPaymentId());
             payment.setOrderId(paymentReq.getOrderId());
+            payment.setOrderIdRef(paymentReq.getOrderIdRef());
             payment.setSignature(paymentReq.getSignature());
             payment.setStatus(status);
-            long epochSeconds = Long.parseLong(paymentDate);
-            LocalDateTime dateTime = java.time.Instant.ofEpochSecond(epochSeconds)
+            payment.setPaymentDate(java.time.Instant.ofEpochSecond(epochSeconds)
                     .atZone(java.time.ZoneId.systemDefault())
-                    .toLocalDateTime();
-            payment.setPaymentDate(dateTime);
+                    .toLocalDateTime());
             payment = paymentRepo.save(payment);
 
-            // 4. Saga completion step: this service's own local transaction succeeded,
-            // now tell order-service (the other participant) so its order reflects it.
-            // Best-effort — see OrderServiceFallback for the honest gap if this call fails.
-            updateOrderStatusSafely(paymentReq.getOrderIdRef(), "PAID", payment.getId());
+            // 6. Saga completion step: record a PAID event in the same transaction as the
+            // payment. OutboxPublisher delivers it to order-service via RabbitMQ, retrying
+            // until the broker confirms, so it can't be lost if order-service is down.
+            outboxService.recordPaid(paymentReq.getOrderIdRef(), payment.getId());
 
             return toPaymentRes(payment);
         } catch (Exception e) {
-            // Saga compensation step: our local transaction failed (bad signature, Razorpay
-            // unreachable, etc.), so tell order-service to mark the order as failed instead
-            // of leaving it silently stuck at PENDING forever.
-            updateOrderStatusSafely(paymentReq.getOrderIdRef(), "PAYMENT_FAILED", null);
+            // Saga compensation step: our local transaction failed (bad signature, declined
+            // payment, wrong amount...), so tell order-service to mark the order as failed
+            // instead of leaving it silently stuck at PENDING forever.
+            outboxService.recordFailed(paymentReq.getOrderIdRef());
             throw e;
-        }
-    }
-
-    // Never let a failure to reach order-service abort/rollback the payment's own
-    // outcome — the payment record (success or failure) is this service's source of
-    // truth for what actually happened; the order-service call is a best-effort
-    // notification on top of it, not a distributed transaction.
-    private void updateOrderStatusSafely(String orderId, String status, Long paymentId) {
-        if (orderId == null) {
-            return;
-        }
-        try {
-            orderServiceClient.updateOrderStatus(orderId, new OrderStatusUpdateReq(status, paymentId));
-        } catch (Exception ex) {
-            log.error("Failed to propagate order status '{}' to order-service for orderId={}: {}",
-                    status, orderId, ex.getMessage(), ex);
         }
     }
 
@@ -207,7 +212,7 @@ public class PaymentService {
         res.setSignature(payment.getSignature());
         res.setStatus(payment.getStatus());
         res.setPaymentDate(payment.getPaymentDate());
-        res.setOrderIdRef(String.valueOf(payment.getOrderIdRef())); // Default to null
+        res.setOrderIdRef(payment.getOrderIdRef());
         return res;
     }
 }

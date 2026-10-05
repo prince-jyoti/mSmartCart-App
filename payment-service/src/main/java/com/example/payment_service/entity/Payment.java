@@ -21,6 +21,7 @@ public class Payment {
     @Transient
     private String orderId; // Used for DTO mapping only, not persisted
 
+    @Column(unique = true)
     private String paymentId; // Razorpay payment_id
 
     private String signature;
@@ -32,5 +33,5 @@ public class Payment {
 //    @OneToOne
 //    @JoinColumn(name = "order_id")
 //    private Order order;
-    private Long orderIdRef; // Reference to Order entity as Long
+    private String orderIdRef; // public order id (ORD-...) of the order this pays for
 }

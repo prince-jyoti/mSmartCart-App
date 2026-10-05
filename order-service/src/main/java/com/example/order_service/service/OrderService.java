@@ -13,6 +13,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -54,8 +56,8 @@ public class OrderService {
 
     private ProductDTO getProductDTO(String productId) {
         BaseResponse<ProductDTO> productResponse = productServiceClient.getById(Long.valueOf(productId));
-        if (productResponse == null || productResponse.getData() == null) {
-            throw new RuntimeException("Product not found");
+        if (productResponse == null || productResponse.getData() == null || productResponse.getStatus() != 200) {
+            throw new RuntimeException("Product not found or product service unavailable");
         }
         return productResponse.getData();
     }
@@ -68,26 +70,37 @@ public class OrderService {
         return paymentResponse.getData();
     }
 
+    // Status, prices and total are decided here, never taken from the client: the
+    // request only contributes which products and how many of each.
     @Transactional
     public OrderRes createOrder(OrderReq orderReq) {
-        UserDTO userDTO= getUserDTO();
+        if (orderReq.getItems() == null || orderReq.getItems().isEmpty()) {
+            throw new IllegalArgumentException("Order must contain at least one item");
+        }
+        UserDTO userDTO = getUserDTO();
         Order order = new Order();
         order.setOrderId("ORD-" + UUID.randomUUID());
         order.setUserId(userDTO.getId());
-        order.setStatus(orderReq.getStatus());
-        order.setTotalAmount(orderReq.getTotalAmount());
-        order.setCreatedAt(orderReq.getCreatedAt());
-        // Map items
-        Order finalOrder = order;
-        List<OrderItem> items = orderReq.getItems().stream().map(itemDTO -> {
+        order.setStatus("PENDING");
+        order.setCreatedAt(LocalDateTime.now());
+
+        double total = 0;
+        List<OrderItem> items = new ArrayList<>();
+        for (OrderItemDTO itemDTO : orderReq.getItems()) {
+            if (itemDTO.getQuantity() <= 0) {
+                throw new IllegalArgumentException("Quantity must be positive");
+            }
+            ProductDTO product = getProductDTO(String.valueOf(itemDTO.getProductId()));
             OrderItem item = new OrderItem();
-            item.setOrder(finalOrder);
-            item.setProductId(itemDTO.getProductId());
+            item.setOrder(order);
+            item.setProductId(product.getId());
             item.setQuantity(itemDTO.getQuantity());
-            item.setPrice(itemDTO.getPrice());
-            return item;
-        }).collect(Collectors.toList());
+            item.setPrice(product.getPrice());
+            items.add(item);
+            total += product.getPrice() * itemDTO.getQuantity();
+        }
         order.setItems(items);
+        order.setTotalAmount(total);
         order = orderRepo.save(order);
         return toOrderRes(order);
     }
@@ -103,9 +116,28 @@ public class OrderService {
         return orders.stream().map(this::toOrderRes).collect(Collectors.toList());
     }
 
-    public OrderRes getOrderById(Long id) {
+    public OrderRes getOrderById(Long id, String role) {
         Order order = orderRepo.findById(id).orElseThrow(() -> new RuntimeException("Order not found"));
+        assertOwnerOrAdmin(order, role);
         return toOrderRes(order);
+    }
+
+    // Lets payment-service look an order up by its public ORD-... id, using the
+    // caller's own token, so it can confirm the caller owns the order and check the amount.
+    public OrderRes getOrderByOrderId(String orderId, String role) {
+        Order order = orderRepo.findByOrderId(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
+        assertOwnerOrAdmin(order, role);
+        return toOrderRes(order);
+    }
+
+    private void assertOwnerOrAdmin(Order order, String role) {
+        if ("ADMIN".equalsIgnoreCase(role)) {
+            return;
+        }
+        if (!order.getUserId().equals(getUserDTO().getId())) {
+            throw new RuntimeException("Order not found");
+        }
     }
 
     @Transactional
@@ -124,16 +156,21 @@ public class OrderService {
         orderRepo.delete(order);
     }
 
-    // Saga compensation/completion step: payment-service calls this after it
-    // decides the payment succeeded or failed, so the order's own status
-    // reflects the outcome of a transaction that happened in another service's DB.
+    // Saga completion/compensation step, driven by PaymentEvents from payment-service. Safe to
+    // apply repeatedly: PAID is final, and re-applying the same status changes nothing.
     @Transactional
-    public void updateOrderStatusByOrderId(String orderId, OrderStatusUpdateReq statusUpdateReq) {
+    public void applyPaymentOutcome(String orderId, String status, Long paymentId) {
+        if (!"PAID".equals(status) && !"PAYMENT_FAILED".equals(status)) {
+            throw new IllegalArgumentException("Unsupported status: " + status);
+        }
         Order order = orderRepo.findByOrderId(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
-        order.setStatus(statusUpdateReq.getStatus());
-        if (statusUpdateReq.getPaymentId() != null) {
-            order.setPaymentId(statusUpdateReq.getPaymentId());
+        if ("PAID".equals(order.getStatus())) {
+            return; // already settled; a late or repeated message must not change it
+        }
+        order.setStatus(status);
+        if (paymentId != null) {
+            order.setPaymentId(paymentId);
         }
         orderRepo.save(order);
     }

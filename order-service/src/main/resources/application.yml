@@ -28,3 +28,16 @@ spring:
       ddl-auto: update
     show-sql: true
     database-platform: org.hibernate.dialect.MySQL8Dialect
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: 5672
+    username: ${RABBITMQ_USER:smartcart}
+    password: ${RABBITMQ_PASSWORD:smartcart}
+    listener:
+      simple:
+        default-requeue-rejected: false   # failed messages go to the DLQ, never back to the head of the queue
+        retry:
+          enabled: true
+          max-attempts: 5
+          initial-interval: 1s
+          multiplier: 2

@@ -40,7 +40,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: root
       JWT_SECRET: ${JWT_SECRET:-change-this-shared-secret-change-this-shared-secret}
     depends_on:
-      user-db:
+      product-db:
         condition: service_healthy
       eureka-server:
         condition: service_started
@@ -145,12 +145,17 @@ services:
       context: ./order-service
       dockerfile: Dockerfile
     environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-smartcart}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-smartcart}
       SPRING_DATASOURCE_URL: jdbc:mysql://order-db:3306/orderdb
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
       JWT_SECRET: ${JWT_SECRET:-change-this-shared-secret-change-this-shared-secret}
     depends_on:
       order-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       eureka-server:
         condition: service_started
@@ -182,6 +187,9 @@ services:
       context: ./payment-service
       dockerfile: Dockerfile
     environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-smartcart}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-smartcart}
       SPRING_DATASOURCE_URL: jdbc:mysql://payment-db:3306/paymentdb
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
@@ -190,6 +198,8 @@ services:
       RAZORPAY_SECRET: ${RAZORPAY_SECRET}
     depends_on:
       payment-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       eureka-server:
         condition: service_started
@@ -216,6 +226,24 @@ services:
       - paymentdb-data:/var/lib/mysql
 
 
+  # ===================== MESSAGE BROKER =====================
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-smartcart}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-smartcart}
+    ports:
+      - "15672:15672"   # management UI only; AMQP (5672) stays inside the compose network
+    networks:
+      - microservices-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
   # ===================== FRONTEND =====================
   frontend:
     build:
@@ -241,3 +269,4 @@ volumes:
   cartdb-data:
   orderdb-data:
   paymentdb-data:
+  rabbitmq-data:

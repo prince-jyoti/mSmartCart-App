@@ -2,7 +2,6 @@ package com.example.order_service.controller;
 
 import com.example.order_service.dto.OrderReq;
 import com.example.order_service.dto.OrderRes;
-import com.example.order_service.dto.OrderStatusUpdateReq;
 import com.example.order_service.service.OrderService;
 import com.example.order_service.utils.BaseResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,9 +54,20 @@ public class OrderController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<BaseResponse<OrderRes>> getOrderById(@PathVariable Long id) {
+    public ResponseEntity<BaseResponse<OrderRes>> getOrderById(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
         try {
-            OrderRes order = orderService.getOrderById(id);
+            OrderRes order = orderService.getOrderById(id, getUserRoleOrThrow(jwt));
+            return ResponseEntity.ok(new BaseResponse<>(200, "Order found", order));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new BaseResponse<>(404, e.getMessage(), null));
+        }
+    }
+
+    @GetMapping("/by-order-id/{orderId}")
+    public ResponseEntity<BaseResponse<OrderRes>> getOrderByOrderId(@PathVariable String orderId, @AuthenticationPrincipal Jwt jwt) {
+        try {
+            OrderRes order = orderService.getOrderByOrderId(orderId, getUserRoleOrThrow(jwt));
             return ResponseEntity.ok(new BaseResponse<>(200, "Order found", order));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -88,20 +98,4 @@ public class OrderController {
                     .body(new BaseResponse<>(404, e.getMessage(), null));
         }
     }
-
-    // Called by payment-service (the saga's other participant) to report the outcome
-    // of a transaction that happened in its own database, not in order-service's.
-    @PatchMapping("/by-order-id/{orderId}/status")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<BaseResponse<Void>> updateOrderStatusByOrderId(
-            @PathVariable String orderId, @RequestBody OrderStatusUpdateReq statusUpdateReq) {
-        try {
-            orderService.updateOrderStatusByOrderId(orderId, statusUpdateReq);
-            return ResponseEntity.ok(new BaseResponse<>(200, "Order status updated", null));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new BaseResponse<>(404, e.getMessage(), null));
-        }
-    }
 }
-
