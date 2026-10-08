@@ -1,16 +1,11 @@
 import React, { useState } from "react";
 import API from "../utils/api";
 
-const roles = [
-  { value: "USER", label: "User" },
-  { value: "ADMIN", label: "Admin" },
-];
 const SignUp = ({ setSignUpPage }) => {
   const [signupData, setSignupData] = useState({
     name: "",
     email: "",
     password: "",
-    role: "USER",
   });
   const [signupError, setSignupError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState("");
@@ -30,7 +25,6 @@ const SignUp = ({ setSignUpPage }) => {
           name: signupData.name,
           email: signupData.email,
           password: signupData.password,
-          role: signupData.role,
         });
         const { status } = response;
         if (status === 200) {
@@ -102,28 +96,6 @@ const SignUp = ({ setSignUpPage }) => {
             required
             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-        </div>
-        <div>
-          <label
-            className="block text-gray-700 mb-1 text-left"
-            htmlFor="signup-role"
-          >
-            Role
-          </label>
-          <select
-            id="signup-role"
-            name="role"
-            value={signupData.role}
-            onChange={handleChange}
-            required
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {roles.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
         </div>
         {signupError && (
           <div className="text-red-600 text-sm">{signupError}</div>

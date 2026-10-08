@@ -1,26 +1,46 @@
 server:
   port: 8082
 
+# Failed logins per email: after max-failures within window, that email is refused (429) until
+# the window has passed. Complements the gateway's per-IP limit and also covers direct calls.
+login:
+  throttle:
+    max-failures: ${LOGIN_THROTTLE_MAX_FAILURES:5}
+    window: ${LOGIN_THROTTLE_WINDOW:PT15M}
+
 jwt:
   secret: ${JWT_SECRET:change-this-shared-secret-change-this-shared-secret}
+
+# Optional: creates this admin on startup if the email is not registered yet.
+admin:
+  email: ${ADMIN_EMAIL:}
+  password: ${ADMIN_PASSWORD:}
 
 eureka:
   client:
     service-url:
       defaultZone: http://eureka-server:8761/eureka/
+    registry-fetch-interval-seconds: 5      # default 30: how stale this service's view of the registry can be
+  instance:
+    lease-renewal-interval-in-seconds: 5    # heartbeat; default 30
+    lease-expiration-duration-in-seconds: 15  # a crashed instance is dropped after this; default 90
 
 spring:
   application:
     name: user-service
   datasource:
-#    url: jdbc:mysql://localhost:3306/userdb
-    url: jdbc:mysql://user-db:3306/userdb
-    username: root
-    password: root
-    driver-class-name: com.mysql.cj.jdbc.Driver
+#    url: jdbc:postgresql://localhost:5432/userdb
+    url: jdbc:postgresql://user-db:5432/userdb
+    username: smartcart
+    password: smartcart
+    driver-class-name: org.postgresql.Driver
 
+  flyway:
+    # Databases created before Flyway already hold the V1 schema: record them as V1 instead of
+    # running it. Fresh databases run V1 normally.
+    baseline-on-migrate: true
+    baseline-version: 1
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
-    database-platform: org.hibernate.dialect.MySQL8Dialect
+      ddl-auto: validate   # Flyway owns the schema (db/migration); Hibernate only checks it matches
+    show-sql: false

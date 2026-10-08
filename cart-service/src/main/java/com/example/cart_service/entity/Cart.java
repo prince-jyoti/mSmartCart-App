@@ -1,5 +1,6 @@
 package com.example.cart_service.entity;
 
+import java.math.BigDecimal;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -17,17 +18,11 @@ public class Cart {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-//    @OneToOne
-//    @JoinColumn(name = "user_id")
-//    private User user;
-
     private Long userId; // User ID for simplicity
 
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CartItem> items;
 
-//    @ManyToOne
-//    private Product product;
-
-    private double totalPrice;
+    @Column(nullable = false, precision = 12, scale = 2) // numeric(12,2): exact money, never a float
+    private BigDecimal totalPrice;
 }

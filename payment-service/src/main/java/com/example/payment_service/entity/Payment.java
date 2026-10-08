@@ -1,12 +1,10 @@
 package com.example.payment_service.entity;
 
+import java.time.Instant;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
-
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -28,10 +26,10 @@ public class Payment {
 
     private String status;    // "SUCCESS", "FAILED", "PENDING"
 
-    private LocalDateTime paymentDate;
+    // A moment in time, stored as timestamptz and sent as ISO-8601 UTC ("...Z") so clients can show local time.
+    private Instant paymentDate;
 
-//    @OneToOne
-//    @JoinColumn(name = "order_id")
-//    private Order order;
     private String orderIdRef; // public order id (ORD-...) of the order this pays for
+
+    private Long userId; // user who made the payment (JWT subject); only they or an admin may read it
 }

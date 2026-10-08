@@ -1,5 +1,6 @@
 package com.example.product_service.entity;
 
+import java.math.BigDecimal;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -22,7 +23,8 @@ public class Product {
 
     private String image;
 
-    private double price;
+    @Column(nullable = false, precision = 12, scale = 2) // numeric(12,2): exact money, never a float
+    private BigDecimal price;
 
     private int stock;
 
@@ -31,11 +33,4 @@ public class Product {
     private String color;
     private String category;
     private int discount;
-
-    private boolean active = true;
-
-//    @ManyToOne(fetch = FetchType.LAZY)
-//    @JoinColumn(name = "user_id")
-//    private User user;
-    private int userId; // Replaces direct User entity reference
 }

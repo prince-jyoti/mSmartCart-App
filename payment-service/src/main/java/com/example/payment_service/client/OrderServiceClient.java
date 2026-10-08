@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 
-@FeignClient(name = "order-service", fallback = OrderServiceFallback.class, configuration = FeignClientConfig.class)
+@FeignClient(name = "order-service", fallbackFactory = OrderServiceFallbackFactory.class, configuration = FeignClientConfig.class)
 public interface OrderServiceClient {
     @GetMapping("/orders/by-order-id/{orderId}")
     BaseResponse<OrderRes> getOrderByOrderId(@PathVariable("orderId") String orderId);

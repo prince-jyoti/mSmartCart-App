@@ -38,7 +38,7 @@ public class OutboxPublisher {
                         .setDeliveryMode(MessageDeliveryMode.PERSISTENT)
                         .build();
                 rabbitTemplate.invoke(template -> {
-                    template.send(RabbitConfig.EXCHANGE, event.getRoutingKey(), message);
+                    template.send(RabbitConfig.OUTBOX_EXCHANGE, event.getRoutingKey(), message);
                     template.waitForConfirmsOrDie(5000);
                     return null;
                 });

@@ -1,15 +1,14 @@
 import { useSelector } from "react-redux";
 import useCheckout from "./hooks/useCheckout";
+import { formatRupees } from "../utils/orderStatus";
 
 export default function Checkout() {
   const cart = useSelector((state) => state.cart);
 
   const { handlePayment } = useCheckout();
+  // Only what to buy: the server sets prices, total, status and time.
   const orderPayload = {
-    totalAmount: cart.total,
-    status: "PENDING",
-    items: cart.items,
-    createdAt: new Date(),
+    items: cart.items.map(({ productId, quantity }) => ({ productId, quantity })),
   };
 
   return (
@@ -50,26 +49,10 @@ export default function Checkout() {
             )}
           </div>
           <div className="rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 p-6 mb-6 border border-indigo-100">
-            <div className="flex justify-between mb-2">
-              <span className="text-gray-600 font-medium">Subtotal</span>
-              <span className="font-semibold">₹{cart.total}</span>
-            </div>
-            <div className="flex justify-between mb-2">
-              <span className="text-gray-600 font-medium">Shipping</span>
-              <span className="font-semibold">₹99</span>
-            </div>
-            <div className="flex justify-between mb-2">
-              <span className="text-gray-600 font-medium">Tax (18%)</span>
-              <span className="font-semibold">
-                ₹{Math.round(cart.total * 0.18)}
-              </span>
-            </div>
-            <hr className="my-3 border-gray-200" />
+            {/* Exactly what Razorpay will charge: the item total, nothing added. */}
             <div className="flex justify-between items-center text-xl font-bold">
               <span>Total</span>
-              <span className="text-purple-700">
-                ₹{cart.total + 99 + Math.round(cart.total * 0.18)}
-              </span>
+              <span className="text-purple-700">{formatRupees(cart.total)}</span>
             </div>
           </div>
           <div className="flex items-center justify-center gap-2 bg-green-50 border border-green-200 rounded-xl p-4 mt-4">

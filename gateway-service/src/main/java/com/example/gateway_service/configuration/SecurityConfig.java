@@ -14,8 +14,6 @@ import org.springframework.security.web.server.authentication.ServerAuthenticati
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 
-
-
 @EnableWebFluxSecurity
 @Configuration
 public class SecurityConfig {
@@ -27,7 +25,6 @@ public class SecurityConfig {
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
-//                .cors(Customizer.withDefaults())
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Allow all OPTIONS requests
                         .pathMatchers("/auth/**").permitAll()

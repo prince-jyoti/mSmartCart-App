@@ -1,6 +1,6 @@
 package com.example.cart_service.dto;
 
-
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -17,7 +17,7 @@ public class ProductDTO {
 
     private String image;
 
-    private double price;
+    private BigDecimal price;
 
     private int stock;
 
@@ -26,8 +26,4 @@ public class ProductDTO {
     private String color;
     private String category;
     private int discount;
-
-//    private boolean active;
-
-    private String userId;
 }

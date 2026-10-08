@@ -9,8 +9,10 @@ COPY pom.xml .
 # Copy the source code
 COPY src ./src
 
-# Build the application
-RUN ./mvnw clean package -DskipTests
+# Build the application. The cache mount keeps ~/.m2 (dependencies and the Maven
+# distribution the wrapper downloads) between builds and across all services, so
+# libraries are fetched once instead of on every image build.
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -B clean package -DskipTests
 
 # ---- Runtime Image ----
 FROM eclipse-temurin:21-jre

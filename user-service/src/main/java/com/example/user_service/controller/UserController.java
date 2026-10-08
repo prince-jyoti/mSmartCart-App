@@ -1,5 +1,6 @@
 package com.example.user_service.controller;
 
+import com.example.user_service.exception.NotFoundException;
 import com.example.user_service.dto.UserDto;
 import com.example.user_service.service.UserService;
 import com.example.user_service.utils.BaseResponse;
@@ -25,26 +26,22 @@ public class UserController {
                     .body(new BaseResponse<>(400, "Invalid token: missing email claim", null));
         }
         log.info("Fetching profile for user: {}", email);
-        try {
-            UserDto result = userService.getByEmail(email);
-            return ResponseEntity.ok(new BaseResponse<>(200, "User found", result));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new BaseResponse<>(500, e.getMessage(), null));
-        }
+        UserDto result = userService.getByEmail(email);
+        return ResponseEntity.ok(new BaseResponse<>(200, "User found", result));
     }
 
     // Used by other services (e.g. order-service) to resolve the actual
     // owner of a resource by internal id, as opposed to /me which always
-    // resolves the caller making the request.
+    // resolves the caller making the request. Those calls carry the caller's
+    // token, so only the user themself or an admin may read a profile; anyone
+    // else gets the same 404 as a missing user, so ids can't be probed.
     @GetMapping("/{id}")
-    public ResponseEntity<BaseResponse<UserDto>> getById(@PathVariable Long id) {
-        try {
-            UserDto result = userService.getById(id);
-            return ResponseEntity.ok(new BaseResponse<>(200, "User found", result));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new BaseResponse<>(404, e.getMessage(), null));
+    public ResponseEntity<BaseResponse<UserDto>> getById(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(jwt.getClaimAsString("role"));
+        if (!isAdmin && !String.valueOf(id).equals(jwt.getSubject())) {
+            throw new NotFoundException("User not found");
         }
+        UserDto result = userService.getById(id);
+        return ResponseEntity.ok(new BaseResponse<>(200, "User found", result));
     }
 }

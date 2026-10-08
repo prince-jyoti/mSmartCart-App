@@ -5,7 +5,8 @@ import Home from "../pages/Product";
 import Welcome from "../pages/Welcome";
 import Cart from "../pages/Cart";
 import Checkout from "../pages/Checkout";
-import Success from "../pages/Success";
+import Orders from "../pages/Orders";
+import OrderStatus from "../pages/OrderStatus";
 import Layout from "../pages/Layout";
 
 const MainRoute = () => {
@@ -19,7 +20,8 @@ const MainRoute = () => {
             <Route index element={<Home />} />
             <Route path="cart" element={<Cart />} />
             <Route path="checkout" element={<Checkout />} />
-            <Route path="success" element={<Success />} />
+            <Route path="orders" element={<Orders />} />
+            <Route path="orders/:orderId" element={<OrderStatus />} />
           </Route>
         </Route>
       </Routes>

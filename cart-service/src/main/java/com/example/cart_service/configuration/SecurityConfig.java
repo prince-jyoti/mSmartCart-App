@@ -33,7 +33,8 @@ public class SecurityConfig {
         http
                 .csrf(csrf->csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/carts/**").permitAll()
+                        // Every endpoint needs a valid token here too, not only at the gateway:
+                        // the service's own port is reachable without going through it.
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2

@@ -1,13 +1,9 @@
 package com.example.user_service.entity;
 
-
-
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
 
 
 @Entity
@@ -31,19 +27,4 @@ public class User {
 
     @Column(nullable = false)
     private String role; // e.g. "USER", "ADMIN"
-
-//    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-//    private List<Order> orders;
-
-    private List <Long> orderIds; // List of order IDs for simplicity
-
-//    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
-//    private Cart cart;
-
-    private int cartId; // Cart ID for simplicity
-
-//    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-//    private List<Product> products;
-
-    private List <Long> productIds; // List of product IDs for simplicity
 }

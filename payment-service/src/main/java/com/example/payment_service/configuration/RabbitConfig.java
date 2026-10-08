@@ -15,6 +15,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class RabbitConfig {
     public static final String EXCHANGE = "payment.events";
+    // The exchange this service's OutboxPublisher sends to (the publisher is shared code).
+    public static final String OUTBOX_EXCHANGE = EXCHANGE;
     public static final String QUEUE = "order.payment-events";
     public static final String DLX = "payment.events.dlx";
     public static final String DLQ = "order.payment-events.dlq";

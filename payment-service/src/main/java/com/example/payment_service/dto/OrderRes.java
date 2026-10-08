@@ -1,12 +1,12 @@
 package com.example.payment_service.dto;
 
+import java.time.Instant;
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.util.List;
-
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -16,8 +16,8 @@ public class OrderRes {
     private String orderId;
     private UserDTO  user;
     private List<OrderItemDTO> items;
-    private double totalAmount;
+    private BigDecimal totalAmount;
     private String status;
-    private LocalDateTime createdAt;
+    private Instant createdAt;
     private PaymentRes payment;
 }

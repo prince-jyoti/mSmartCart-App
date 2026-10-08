@@ -1,10 +1,9 @@
 package com.example.order_service.dto;
 
+import java.time.Instant;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
@@ -16,11 +15,9 @@ public class PaymentRes {
 
     private String orderId;   // Razorpay order_id
 
-    private String signature;
-
     private String status;    // "SUCCESS", "FAILED", "PENDING"
 
-    private LocalDateTime paymentDate;
+    private Instant paymentDate;
 
     private String orderIdRef; // Reference to Order entity as String (id)
 

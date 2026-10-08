@@ -1,15 +1,15 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import API from "../utils/api";
 
-// Process Payment (simulate or real payment gateway)
+// Creates the Razorpay order for one of our orders. The server works out the amount
+// from the order itself, so only the order id is sent.
 export const processPayment = createAsyncThunk(
   "payments/create-razorpay-order",
-  async ({ amount, currency, receipt }, { rejectWithValue }) => {
+  async ({ orderIdRef }, { rejectWithValue }) => {
     try {
-      // Example: POST /payments
-      const response = await API.post(
-        `/payments/create-razorpay-order?amount=${amount}&currency=${currency}&receipt=${receipt}`
-      );
+      const response = await API.post("/payments/create-razorpay-order", null, {
+        params: { orderIdRef },
+      });
       return response.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || "Payment failed");
@@ -21,13 +21,15 @@ export const verifyPayment = createAsyncThunk(
   "payments/verifyPayment",
   async (verifyPayload, { rejectWithValue }) => {
     try {
-      // Example: POST /payments/verify
       const response = await API.post("/payments", verifyPayload);
       return response.data.data;
     } catch (err) {
-      return rejectWithValue(
-        err.response?.data?.message || "Verification failed"
-      );
+      // Keep the status: 503 means "paid, but not confirmed with Razorpay yet" (the server
+      // confirms it later on its own), not "payment failed".
+      return rejectWithValue({
+        status: err.response?.status,
+        message: err.response?.data?.message || "Verification failed",
+      });
     }
   }
 );

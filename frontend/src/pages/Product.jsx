@@ -121,7 +121,7 @@ export default function Home() {
                   <div className="relative overflow-hidden">
                     <img
                       src={product.image}
-                      alt={product.name}
+                      alt={product.title}
                       className="w-full h-48 object-cover hover:scale-110 transition-transform duration-300"
                     />
                   </div>
@@ -129,7 +129,7 @@ export default function Home() {
                   {/* Product Info */}
                   <div className="p-6">
                     <h3 className="text-xl font-bold text-gray-800 mb-2">
-                      {product.name}
+                      {product.title}
                     </h3>
                     <p className="text-gray-600 text-sm mb-4">
                       {product.description}

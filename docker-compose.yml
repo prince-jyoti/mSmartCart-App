@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   # ===================== SERVICE DISCOVERY =====================
   eureka-server:
@@ -35,12 +34,17 @@ services:
       context: ./product-service
       dockerfile: Dockerfile
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://product-db:3306/productdb
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-smartcart}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-smartcart}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://product-db:5432/productdb
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-smartcart}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-smartcart}
       JWT_SECRET: ${JWT_SECRET:-change-this-shared-secret-change-this-shared-secret}
     depends_on:
       product-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       eureka-server:
         condition: service_started
@@ -50,30 +54,33 @@ services:
       - microservices-net
 
   product-db:
-    image: mysql:8.0
+    image: postgres:16-alpine
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: productdb
+      POSTGRES_USER: ${DB_USER:-smartcart}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-smartcart}
+      POSTGRES_DB: productdb
     ports:
-      - "3307:3306"
+      - "5433:5432"
     networks:
       - microservices-net
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
     volumes:
-      - productdb-data:/var/lib/mysql
+      - productdb-pgdata:/var/lib/postgresql/data
   # ===================== USER SERVICE =====================
   user-service:
     build:
       context: ./user-service
       dockerfile: Dockerfile
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://user-db:3306/userdb
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:postgresql://user-db:5432/userdb
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-smartcart}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-smartcart}
       JWT_SECRET: ${JWT_SECRET:-change-this-shared-secret-change-this-shared-secret}
     depends_on:
       user-db:
@@ -86,21 +93,22 @@ services:
       - microservices-net
 
   user-db:
-    image: mysql:8.0
+    image: postgres:16-alpine
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: userdb
+      POSTGRES_USER: ${DB_USER:-smartcart}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-smartcart}
+      POSTGRES_DB: userdb
     ports:
-      - "3308:3306"
+      - "5434:5432"
     networks:
       - microservices-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
     volumes:
-      - userdb-data:/var/lib/mysql
+      - userdb-pgdata:/var/lib/postgresql/data
 
   # ===================== CART SERVICE =====================
   cart-service:
@@ -108,12 +116,17 @@ services:
       context: ./cart-service
       dockerfile: Dockerfile
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://cart-db:3306/cartdb
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-smartcart}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-smartcart}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://cart-db:5432/cartdb
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-smartcart}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-smartcart}
       JWT_SECRET: ${JWT_SECRET:-change-this-shared-secret-change-this-shared-secret}
     depends_on:
       cart-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       eureka-server:
         condition: service_started
@@ -123,21 +136,22 @@ services:
       - microservices-net
 
   cart-db:
-    image: mysql:8.0
+    image: postgres:16-alpine
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: cartdb
+      POSTGRES_USER: ${DB_USER:-smartcart}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-smartcart}
+      POSTGRES_DB: cartdb
     ports:
-      - "3309:3306"
+      - "5435:5432"
     networks:
       - microservices-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
     volumes:
-      - cartdb-data:/var/lib/mysql
+      - cartdb-pgdata:/var/lib/postgresql/data
 
   # ===================== ORDER SERVICE =====================
   order-service:
@@ -148,9 +162,9 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: ${RABBITMQ_USER:-smartcart}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-smartcart}
-      SPRING_DATASOURCE_URL: jdbc:mysql://order-db:3306/orderdb
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:postgresql://order-db:5432/orderdb
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-smartcart}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-smartcart}
       JWT_SECRET: ${JWT_SECRET:-change-this-shared-secret-change-this-shared-secret}
     depends_on:
       order-db:
@@ -165,21 +179,22 @@ services:
       - microservices-net
 
   order-db:
-    image: mysql:8.0
+    image: postgres:16-alpine
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: orderdb
+      POSTGRES_USER: ${DB_USER:-smartcart}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-smartcart}
+      POSTGRES_DB: orderdb
     ports:
-      - "3310:3306"
+      - "5436:5432"
     networks:
       - microservices-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
     volumes:
-      - orderdb-data:/var/lib/mysql
+      - orderdb-pgdata:/var/lib/postgresql/data
 
   # ===================== PAYMENT SERVICE =====================
   payment-service:
@@ -190,9 +205,9 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: ${RABBITMQ_USER:-smartcart}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-smartcart}
-      SPRING_DATASOURCE_URL: jdbc:mysql://payment-db:3306/paymentdb
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:postgresql://payment-db:5432/paymentdb
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-smartcart}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-smartcart}
       JWT_SECRET: ${JWT_SECRET:-change-this-shared-secret-change-this-shared-secret}
       RAZORPAY_KEY: ${RAZORPAY_KEY}
       RAZORPAY_SECRET: ${RAZORPAY_SECRET}
@@ -209,21 +224,22 @@ services:
       - microservices-net
 
   payment-db:
-    image: mysql:8.0
+    image: postgres:16-alpine
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: paymentdb
+      POSTGRES_USER: ${DB_USER:-smartcart}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-smartcart}
+      POSTGRES_DB: paymentdb
     ports:
-      - "3311:3306"
+      - "5437:5432"
     networks:
       - microservices-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
     volumes:
-      - paymentdb-data:/var/lib/mysql
+      - paymentdb-pgdata:/var/lib/postgresql/data
 
 
   # ===================== MESSAGE BROKER =====================
@@ -264,9 +280,9 @@ networks:
 
 # ===================== VOLUMES =====================
 volumes:
-  userdb-data:
-  productdb-data:
-  cartdb-data:
-  orderdb-data:
-  paymentdb-data:
+  userdb-pgdata:
+  productdb-pgdata:
+  cartdb-pgdata:
+  orderdb-pgdata:
+  paymentdb-pgdata:
   rabbitmq-data:

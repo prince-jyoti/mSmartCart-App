@@ -8,6 +8,7 @@ import {
   clearCart,
   updateCartItem,
 } from "../slices/cartSlice";
+import { formatRupees } from "../utils/orderStatus";
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -113,7 +114,7 @@ export default function Cart() {
                     <div className="flex-shrink-0">
                       <img
                         src={item.image}
-                        alt={item.name}
+                        alt={item.title}
                         className="w-20 h-20 object-cover rounded-lg"
                       />
                     </div>
@@ -175,27 +176,11 @@ export default function Cart() {
                   Order Summary
                 </h2>
 
+                {/* Exactly what the server charges: the item total, nothing added. */}
                 <div className="space-y-3 mb-6">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Subtotal</span>
-                    <span className="font-semibold">₹{total}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Shipping</span>
-                    <span className="font-semibold">₹99</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Tax</span>
-                    <span className="font-semibold">
-                      ₹{(total * 0.18).toFixed(0)}
-                    </span>
-                  </div>
-                  <hr className="border-gray-200" />
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
-                    <span className="text-indigo-600">
-                      ₹{(total + 99 + total * 0.18).toFixed(0)}
-                    </span>
+                    <span className="text-indigo-600">{formatRupees(total)}</span>
                   </div>
                 </div>
 

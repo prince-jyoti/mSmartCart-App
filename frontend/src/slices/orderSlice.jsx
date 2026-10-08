@@ -1,28 +1,28 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import API from "../utils/api";
 
-// 1. Create Order (status: PENDING)
+// Create an order (server sets prices, total and status PENDING, and reserves the stock).
 export const createOrder = createAsyncThunk(
   "order/createOrder",
   async (orderData, { rejectWithValue }) => {
     try {
       const response = await API.post("/orders", orderData);
-      return response.data.data; // should include order id, etc.
+      return response.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || "Order creation failed");
     }
   }
 );
 
-// 2. Update Order Payment (status: PAID or FAILED)
-export const updateOrderPayment = createAsyncThunk(
-  "order/updateOrderPayment",
-  async ({ orderId, payment }, { rejectWithValue }) => {
+// The current user's orders (an admin gets everyone's).
+export const fetchMyOrders = createAsyncThunk(
+  "order/fetchMyOrders",
+  async (_, { rejectWithValue }) => {
     try {
-      const response = await API.patch(`/orders/${orderId}/payment`, payment);
+      const response = await API.get("/orders");
       return response.data.data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || "Payment update failed");
+      return rejectWithValue(err.response?.data?.message || "Could not load orders");
     }
   }
 );
@@ -33,19 +33,19 @@ const orderSlice = createSlice({
     order: null,
     status: "idle",
     error: null,
-    paymentStatus: null,
+    list: [],
+    listStatus: "idle",
+    listError: null,
   },
   reducers: {
     resetOrder: (state) => {
       state.order = null;
       state.status = "idle";
       state.error = null;
-      state.paymentStatus = null;
     },
   },
   extraReducers: (builder) => {
     builder
-      // Create Order
       .addCase(createOrder.pending, (state) => {
         state.status = "loading";
         state.error = null;
@@ -59,17 +59,17 @@ const orderSlice = createSlice({
         state.status = "failed";
         state.error = action.payload;
       })
-      // Update Payment
-      .addCase(updateOrderPayment.pending, (state) => {
-        state.paymentStatus = "loading";
+      .addCase(fetchMyOrders.pending, (state) => {
+        state.listStatus = "loading";
+        state.listError = null;
       })
-      .addCase(updateOrderPayment.fulfilled, (state, action) => {
-        state.paymentStatus = "succeeded";
-        state.order = { ...state.order, ...action.payload };
+      .addCase(fetchMyOrders.fulfilled, (state, action) => {
+        state.listStatus = "succeeded";
+        state.list = action.payload;
       })
-      .addCase(updateOrderPayment.rejected, (state, action) => {
-        state.paymentStatus = "failed";
-        state.error = action.payload;
+      .addCase(fetchMyOrders.rejected, (state, action) => {
+        state.listStatus = "failed";
+        state.listError = action.payload;
       });
   },
 });

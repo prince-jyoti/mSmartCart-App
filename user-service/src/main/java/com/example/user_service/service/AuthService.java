@@ -1,5 +1,6 @@
 package com.example.user_service.service;
 
+import org.springframework.security.authentication.BadCredentialsException;
 import com.example.user_service.dto.AuthReq;
 import com.example.user_service.dto.AuthRes;
 import com.example.user_service.entity.User;
@@ -25,30 +26,43 @@ public class AuthService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private LoginAttemptService loginAttempts;
+
     @Value("${jwt.secret}")
     private String jwtSecret;
 
     private static final Duration TOKEN_TTL = Duration.ofMinutes(90);
 
     public AuthRes register(AuthReq req) {
+        if (req.getName() == null || req.getName().isBlank()) {
+            throw new IllegalArgumentException("Name is required");
+        }
+        if (req.getPassword().length() < 8) {
+            throw new IllegalArgumentException("Password must be at least 8 characters");
+        }
         if (userRepo.findByEmail(req.getEmail()).isPresent()) {
-            throw new RuntimeException("Email already registered");
+            throw new IllegalStateException("Email already registered");
         }
         User user = new User();
         user.setEmail(req.getEmail());
         user.setName(req.getName());
         user.setPassword(passwordEncoder.encode(req.getPassword()));
-        user.setRole("ADMIN".equalsIgnoreCase(req.getRole()) ? "ADMIN" : "USER");
+        // Self-registration always creates a regular user; the requested role is ignored.
+        // Admins are created by AdminBootstrap from configuration.
+        user.setRole("USER");
         User saved = userRepo.save(user);
         return toAuthRes(saved);
     }
 
     public User login(AuthReq req) {
-        User user = userRepo.findByEmail(req.getEmail())
-                .orElseThrow(() -> new RuntimeException("Invalid email or password"));
-        if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid email or password");
+        loginAttempts.checkAllowed(req.getEmail());
+        User user = userRepo.findByEmail(req.getEmail()).orElse(null);
+        if (user == null || !passwordEncoder.matches(req.getPassword(), user.getPassword())) {
+            loginAttempts.recordFailure(req.getEmail());
+            throw new BadCredentialsException("Invalid email or password");
         }
+        loginAttempts.recordSuccess(req.getEmail());
         return user;
     }
 

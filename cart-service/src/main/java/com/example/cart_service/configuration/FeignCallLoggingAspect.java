@@ -1,5 +1,6 @@
 package com.example.cart_service.configuration;
 
+import com.example.cart_service.exception.NotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -20,13 +21,17 @@ public class FeignCallLoggingAspect {
     @Around("feignClientMethods()")
     public Object logAroundFeignCall(ProceedingJoinPoint pjp) throws Throwable {
         String method = pjp.getSignature().toShortString();
-        log.info("Before Feign call: {} args={}", method, Arrays.toString(pjp.getArgs()));
+        log.debug("Before Feign call: {} args={}", method, Arrays.toString(pjp.getArgs()));
 
         long start = System.currentTimeMillis();
         try {
             Object result = pjp.proceed();
-            log.info("After Feign call: {} -> {} ({} ms)", method, result, System.currentTimeMillis() - start);
+            log.debug("After Feign call: {} -> {} ({} ms)", method, result, System.currentTimeMillis() - start);
             return result;
+        } catch (NotFoundException | IllegalArgumentException | IllegalStateException ex) {
+            // The other service answered 404/400/409: a normal outcome, not a failure.
+            log.warn("Feign call {} rejected: {}", method, ex.getMessage());
+            throw ex;
         } catch (Throwable ex) {
             log.error("Feign client error in {}: {}", method, ex.getMessage(), ex);
             throw ex;

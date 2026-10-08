@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-// Outbox pattern: the event is written in the same DB transaction as the payment it
+// Outbox pattern: the event is written in the same DB transaction as the change it
 // describes, then a background job publishes it. Either both exist or neither does.
 @Data
 @NoArgsConstructor

@@ -1,10 +1,10 @@
 package com.example.order_service.entity;
 
+import java.math.BigDecimal;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -20,11 +20,12 @@ public class OrderItem {
     @JoinColumn(name = "order_id")
     private Order order;
 
-//    @ManyToOne
-//    @JoinColumn(name = "product_id")
-//    private Product product;
-
     private Long productId; // Product ID for simplicity
     private int quantity;
-    private double price;
+    @Column(nullable = false, precision = 12, scale = 2) // numeric(12,2): exact money, never a float
+    private BigDecimal price;
+
+    // Product title and image as they were when ordered (null for items from before V7 until first read).
+    private String title;
+    private String image;
 }

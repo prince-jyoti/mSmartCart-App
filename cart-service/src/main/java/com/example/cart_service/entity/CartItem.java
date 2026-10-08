@@ -1,5 +1,6 @@
 package com.example.cart_service.entity;
 
+import java.math.BigDecimal;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,13 +20,10 @@ public class CartItem {
     @JoinColumn(name = "cart_id")
     private Cart cart;
 
-//    @ManyToOne
-//    @JoinColumn(name = "product_id")
-//    private Product product;
-
     private Long productId; // Product ID for simplicity
 
     private int quantity;
 
-    private double price;
+    @Column(nullable = false, precision = 12, scale = 2) // numeric(12,2): exact money, never a float
+    private BigDecimal price;
 }

@@ -36,6 +36,13 @@ export default function Navbar() {
               Home
             </Link>
 
+            <Link
+              to="/orders"
+              className="text-white hover:text-indigo-200 font-medium transition-colors duration-200"
+            >
+              My Orders
+            </Link>
+
             {/* Cart with count */}
             <Link
               to="/cart"

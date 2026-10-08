@@ -1,6 +1,12 @@
 server:
   port: 8086
 
+# Housekeeping: published outbox events older than the retention are deleted every interval.
+outbox:
+  cleanup:
+    retention: ${OUTBOX_RETENTION:P7D}
+    interval: PT1H
+
 jwt:
   secret: ${JWT_SECRET:change-this-shared-secret-change-this-shared-secret}
 
@@ -8,6 +14,18 @@ eureka:
   client:
     service-url:
       defaultZone: http://eureka-server:8761/eureka/
+    registry-fetch-interval-seconds: 5      # default 30: how stale this service's view of the registry can be
+  instance:
+    lease-renewal-interval-in-seconds: 5    # heartbeat; default 30
+    lease-expiration-duration-in-seconds: 15  # a crashed instance is dropped after this; default 90
+
+# PaymentReconciler: asks Razorpay about payments never verified here (page closed after paying,
+# Razorpay unreachable during verification). ISO-8601 durations.
+payment:
+  reconcile:
+    interval: ${PAYMENT_RECONCILE_INTERVAL:PT1M}
+    min-age: ${PAYMENT_RECONCILE_MIN_AGE:PT1M}
+    give-up-after: ${PAYMENT_RECONCILE_GIVE_UP_AFTER:PT2H}
 
 razorpay:
   key: ${RAZORPAY_KEY:razorpay-key-not-set}
@@ -16,21 +34,38 @@ spring:
   application:
     name: payment-service
   cloud:
+    loadbalancer:
+      cache:
+        ttl: 5s   # default 35 s: how long instance lists are cached before asking Eureka again
     openfeign:
       circuitbreaker:
         enabled: true
+      client:
+        config:
+          default:   # fail fast instead of holding a request thread for 60 s
+            connect-timeout: 2000
+            read-timeout: 5000
+    # Run Feign calls on the calling thread. Resilience4j otherwise moves them to its own
+    # thread pool, which has no SecurityContext, so FeignClientConfig sends no JWT.
+    circuitbreaker:
+      resilience4j:
+        disable-thread-pool: true
   datasource:
-#    url: jdbc:mysql://localhost:3306/paymentdb
-    url: jdbc:mysql://payment-db:3306/paymentdb
-    username: root
-    password: root
-    driver-class-name: com.mysql.cj.jdbc.Driver
+#    url: jdbc:postgresql://localhost:5432/paymentdb
+    url: jdbc:postgresql://payment-db:5432/paymentdb
+    username: smartcart
+    password: smartcart
+    driver-class-name: org.postgresql.Driver
 
+  flyway:
+    # Databases created before Flyway already hold the V1 schema: record them as V1 instead of
+    # running it. Fresh databases run V1 normally.
+    baseline-on-migrate: true
+    baseline-version: 1
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
-    database-platform: org.hibernate.dialect.MySQL8Dialect
+      ddl-auto: validate   # Flyway owns the schema (db/migration); Hibernate only checks it matches
+    show-sql: false
   rabbitmq:
     host: ${RABBITMQ_HOST:rabbitmq}
     port: 5672

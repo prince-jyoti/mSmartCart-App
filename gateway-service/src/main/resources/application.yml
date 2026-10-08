@@ -1,6 +1,36 @@
 server:
   port: 8083
 
+# Requests over a limit get 429 with Retry-After. Tokens refill gradually: capacity per period.
+# key: IP (client address) or USER (token subject, IP if there is no token).
+rate-limit:
+  enabled: ${RATE_LIMIT_ENABLED:true}
+  rules:
+    - name: login
+      method: POST
+      path: /auth/login
+      key: IP
+      capacity: 10
+      period: PT1M
+    - name: register
+      method: POST
+      path: /auth/register
+      key: IP
+      capacity: 5
+      period: PT1M
+    - name: place-order
+      method: POST
+      path: /orders
+      key: USER
+      capacity: 10
+      period: PT1M
+    - name: payments
+      method: POST
+      path: /payments/**
+      key: USER
+      capacity: 10
+      period: PT1M
+
 jwt:
   secret: ${JWT_SECRET:change-this-shared-secret-change-this-shared-secret}
 
@@ -8,53 +38,59 @@ eureka:
   client:
     service-url:
       defaultZone: http://eureka-server:8761/eureka/
+    registry-fetch-interval-seconds: 5      # default 30: how stale this service's view of the registry can be
+  instance:
+    lease-renewal-interval-in-seconds: 5    # heartbeat; default 30
+    lease-expiration-duration-in-seconds: 15  # a crashed instance is dropped after this; default 90
 
 spring:
   application:
     name: gateway-service
   cloud:
+    loadbalancer:
+      cache:
+        ttl: 5s   # default 35 s: how long instance lists are cached before asking Eureka again
     gateway:
-      discovery:
-        locator:
-          enabled: false
-      routes:
-        - id: auth-service
-          uri: lb://user-service
-          predicates:
-            - Path=/auth/**
-        - id: product-service
-          uri: lb://product-service
-          predicates:
-            - Path=/products/**
-        - id: user-service
-          uri: lb://user-service
-          predicates:
-            - Path=/user/**
-        - id: cart-service
-          uri: lb://cart-service
-          predicates:
-            - Path=/carts/**
-        - id: order-service
-          uri: lb://order-service
-          predicates:
-            - Path=/orders/**
-        - id: payment-service
-          uri: lb://payment-service
-          predicates:
-            - Path=/payments/**
-      globalcors:
-        add-to-simple-url-handler-mapping: true
-        corsConfigurations:
-          '[/**]':
-            allowedOrigins:
-              - "http://localhost:5173"
+      # Spring Cloud Gateway 4.3+ (Spring Cloud 2025.0): settings live under server.webflux.
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: false
+          routes:
+            - id: auth-service
+              uri: lb://user-service
+              predicates:
+                - Path=/auth/**
+            - id: product-service
+              uri: lb://product-service
+              predicates:
+                - Path=/products/**
+            - id: user-service
+              uri: lb://user-service
+              predicates:
+                - Path=/user/**
+            - id: cart-service
+              uri: lb://cart-service
+              predicates:
+                - Path=/carts/**
+            - id: order-service
+              uri: lb://order-service
+              predicates:
+                - Path=/orders/**
+            - id: payment-service
+              uri: lb://payment-service
+              predicates:
+                - Path=/payments/**
+          globalcors:
+            add-to-simple-url-handler-mapping: true
+            corsConfigurations:
+              '[/**]':
+                allowedOrigins:
+                  - "http://localhost:5173"
 #              - "http://frontend:80"
-            allowedMethods:
-              - "*"
-            allowedHeaders:
-              - "*"
-            allowCredentials: true
-  logging:
-    level:
-      spring.cloud.gateway: DEBUG
-      org.springframework.security: DEBUG
+                allowedMethods:
+                  - "*"
+                allowedHeaders:
+                  - "*"
+                allowCredentials: true

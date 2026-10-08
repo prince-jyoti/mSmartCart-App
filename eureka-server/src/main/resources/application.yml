@@ -11,3 +11,8 @@ eureka:
     fetch-registry: false
   server:
     enable-self-preservation: false
+    # Serve registry changes immediately instead of from a cache refreshed every 30 s, and drop
+    # instances that stopped heart-beating every 5 s. Together with the clients' settings this
+    # makes a restarted service reachable through the gateway within seconds instead of ~1 min.
+    use-read-only-response-cache: false
+    eviction-interval-timer-in-ms: 5000
